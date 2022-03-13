@@ -12,7 +12,7 @@ const req = require("express/lib/request");
 const app = express();
 
 // setting : middleware
-app.use(cors()); // Allow CORS: Access-Control-Allow-Origin
+app.use(cors({ exposedHeaders: "Authorization" })); // Allow CORS: Access-Control-Allow-Origin. Exposed Headers berfungsi agar header kita yang di kasus ini berisi token dapat terlihat di frontend
 app.use(express.json()); // body-parser
 app.use(UrlLogger);
 
@@ -25,8 +25,8 @@ database.connect((error) => {
 // create routes
 const routes = require("./routes");
 app.use(routes.home_route);
-app.use("/api", routes.user_routes);
-app.use("/api/auth", routes.auth_routes);
+app.use("/api", routes.userRoutes);
+app.use("/api/auth", routes.authRoutes);
 
 // running server
 const PORT = process.env.PORT || 2000;

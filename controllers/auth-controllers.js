@@ -1,4 +1,5 @@
 const bcrypt = require("bcrypt");
+const JWT = require("jsonwebtoken");
 const uid = require("uid").uid;
 const database = require("../database").promise(); // Kenapa di .promise()
 const utils = require("../utils");
@@ -66,12 +67,47 @@ const login = async (req, res) => {
     if (!VALID) throw { message: `Password incorrect!` };
 
     // 2. GIVE AUTHORIZATION USING TOKEN
+    const TOKEN = JWT.sign(
+      // pada penggunaan ini uid dan username yang dijadikan TOKEN, SECRET KEY adalah yang meng encrypt
+      { uid: USER[0].uid, username: USER[0].username },
+      process.env.SECRET_KEY
+    );
 
-    res.status(200).send(new utils.CreateRespond(200, "Login Success", []));
+    res.header(`Authorization`, `Bearer ${TOKEN}`); // Ini bisa dilihat di https://stackoverflow.com/questions/23751914/how-can-i-set-response-header-on-express-js-assets, nanti di header insomnia akan muncul tokennya bukan di body
+    res.status(200).send(
+      new utils.CreateRespond(200, "Login Success", {
+        id: USER[0].id,
+        uid: USER[0].uid,
+        username: USER[0].username,
+        email: USER[0].email,
+      })
+    );
   } catch (error) {
     console.log(error);
     res.status(500).send({ error });
   }
 };
 
-module.exports = { register, login };
+const keeplogin = async (req, res) => {
+  try {
+    // 1. Cek token yang ada di header
+    const TOKEN = req.header("x-access-token");
+    if (!TOKEN) throw { message: "access denied." };
+
+    // 2. Verifikasi token, JWT.verify ini akan membuat TOKEN yang udah jadi dibalikkin lagi ke bentuk object yang berisi data yang digunakan untuk buat TOKEN
+    const { uid } = JWT.verify(TOKEN, process.env.SECRET_KEY);
+    if (!uid) throw { message: "invalid access token." };
+
+    // 3. get user data
+    const GET_USER = "SELECT id, uid, username, email FROM user WHERE uid = ?";
+    const [USER] = await database.query(GET_USER, [uid]);
+
+    // 4. send data to client side
+    res.status(200).send(new utils.CreateRespond(200, "verified", USER[0]));
+  } catch (error) {
+    console.log(error);
+    res.status(500).send({ error });
+  }
+};
+
+module.exports = { register, login, keeplogin };
