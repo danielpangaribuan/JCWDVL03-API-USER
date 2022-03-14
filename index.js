@@ -27,6 +27,7 @@ const routes = require("./routes");
 app.use(routes.home_route);
 app.use("/api", routes.userRoutes);
 app.use("/api/auth", routes.authRoutes);
+// app.use(routes.productRoutes);
 
 // running server
 const PORT = process.env.PORT || 2000;

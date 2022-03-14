@@ -4,6 +4,7 @@ const uid = require("uid").uid;
 const database = require("../database").promise(); // Kenapa di .promise()
 const utils = require("../utils");
 const schema = require("../utils/schema");
+const transporter = require("../utils/transporter");
 
 const register = async (req, res) => {
   const { username, email, password, fullname, date_of_birth, gender } =
@@ -15,11 +16,11 @@ const register = async (req, res) => {
 
     // validasi data
     const { error } = schema.validate(req.body);
-    if (error) throw error.details[0].message; // Hanya ambil sebagian dari error yang ditampilkan yaitu messagenya saja
+    if (error) throw { message: error.details[0].message }; // Hanya ambil sebagian dari error yang ditampilkan yaitu messagenya saja
 
-    // - username unik
-    const CHECK_USER = `SELECT username FROM user WHERE username = ?`;
-    const [USERS] = await database.query(CHECK_USER, [username]);
+    // - username & email unik
+    const CHECK_USER = `SELECT username FROM user WHERE username = ? AND email = ?`;
+    const [USERS] = await database.query(CHECK_USER, [username, email]);
 
     if (USERS.length)
       throw { message: `Username ${username} is already exist` }; // Check username nya sudah ada atau belum
@@ -41,6 +42,16 @@ const register = async (req, res) => {
       date_of_birth,
       gender,
     ]);
+
+    // 4. KIRIM VERIFIKASI INFO (DATA YG DIKIRIM BISA BERUPA LINK, OTP, UNIQUE PASSWORD) KE USER, METODE BISA PAKAI EMAIL, SMS, WA, CALL
+    const message = "<h1>Thank You</h1>";
+    await transporter.sendMail({
+      from: `"Admin Warehouse" <jcwdvl02.warehouse@gmail.com>`,
+      to: "bagoes.tyo@gmail.com",
+      subject: "Email Verification",
+      html: message,
+    });
+    console.log("Message sent: %s", info.messageId);
 
     res
       .status(200)
