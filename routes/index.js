@@ -2,6 +2,7 @@ const router = require("express").Router();
 const userRoutes = require("./user-routes");
 const authRoutes = require("./auth-routes");
 const productRoutes = require("./product-routes");
+const locationRoutes = require("./location-routes");
 
 //HOME ROUTES
 router.get("/", (req, res) => {
@@ -9,3 +10,4 @@ router.get("/", (req, res) => {
 });
 
 module.exports = { home_route: router, userRoutes, authRoutes, productRoutes };
+module.exports = { home_route: router, userRoutes, authRoutes, productRoutes, locationRoutes };
