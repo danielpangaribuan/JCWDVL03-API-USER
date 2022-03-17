@@ -5,21 +5,23 @@ const getProducts = async (req, res) => {
     try {
         const { product_name, category_id, warehouse_id } = req.query;
         const GET_PRODUCTS = `SELECT 
-                                (@cnt := @cnt + 1) AS id, p.id AS product_id, p.product_name AS name, p.price AS price, pm.image, p.weight, i.quantity, w.id AS warehouse_id, w.warehouse_name, w.city_name, w.province_name
+                                p.id, 
+                                p.product_name AS product_name, 
+                                p.price AS price, 
+                                pm.image, 
+                                p.weight, 
+                                SUM(i.quantity) AS quantity
                             FROM
                                 product p,
                                 product_image AS pm,
-                                inventory AS i,
-                                warehouse AS w
-                                CROSS JOIN (SELECT @cnt := 1) AS dummy
+                                inventory AS i
                             WHERE
                                 p.id = pm.product_id
-                                    AND pm.status = 1
-                                    AND i.product_id = p.id
-                                    AND p.product_name LIKE '%${ product_name ? product_name : '' }%'
-                                    AND p.category_id = IFNULL(${ category_id ? category_id : null }, p.category_id)
-                                    AND w.id = IFNULL(${ warehouse_id ? warehouse_id : null }, w.id)
-                                    AND i.quantity > 0;`
+                                AND pm.status = 1
+                                AND i.product_id = p.id
+                                AND p.product_name LIKE '%${ product_name ? product_name : '' }%'
+                                AND p.category_id = IFNULL(${ category_id ? category_id : null }, p.category_id)
+                            GROUP BY p.id, pm.image;`
         const [ get_product ] = await db.execute(GET_PRODUCTS);
         const data = get_product;
 
