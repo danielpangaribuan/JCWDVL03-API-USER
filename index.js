@@ -29,6 +29,8 @@ app.use("/api", routes.userRoutes);
 app.use("/api/auth", routes.authRoutes);
 app.use(routes.productRoutes);
 app.use(routes.locationRoutes);
+app.use(routes.comboRoutes);
+app.use(routes.transactionRoutes);
 
 // running server
 const PORT = process.env.PORT || 2000;
