@@ -76,7 +76,8 @@ const getTransactionStatus = async (req, res) => {
                                             t.invoice_number,
                                             t.total_price,
                                             t.status_id,
-                                            ts.status
+                                            ts.status,
+                                            t.created_at
                                         FROM
                                             transaction AS t,
                                             transaction_status AS ts,
@@ -92,19 +93,23 @@ const getTransactionStatus = async (req, res) => {
                                 cd.quantity,
                                 p.product_name,
                                 p.price,
-                                p.price * cd.quantity AS sub_total
+                                p.price * cd.quantity AS sub_total,
+                                pm.image
                             FROM
                                 transaction AS t,
                                 transaction_status AS ts,
                                 cart AS c,
                                 cart_detail AS cd,
-                                product AS p
+                                product AS p,
+                                product_image AS pm
                             WHERE
                                 t.status_id NOT IN (8)
                                 AND t.status_id = ts.id
                                 AND c.user_id = ${userID}
                                 AND t.cart_id = c.id
                                 AND t.cart_id = cd.cart_id
+                                AND pm.product_id = p.id
+                                AND pm.status = 1
                                 AND p.id = cd.product_id;`
         
 
