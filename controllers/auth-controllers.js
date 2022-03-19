@@ -1,9 +1,12 @@
 const bcrypt = require("bcrypt");
 const JWT = require("jsonwebtoken");
+const otpGenerator = require("otp-generator");
 const uid = require("uid").uid;
+const OTP = require("otp-generator");
 const database = require("../database").promise(); // Kenapa di .promise()
 const utils = require("../utils");
 const schema = require("../utils/schema");
+// const otp_generator =
 const transporter = require("../utils/transporter");
 
 const register = async (req, res) => {
@@ -43,9 +46,33 @@ const register = async (req, res) => {
       gender,
     ]);
 
-    // 4. KIRIM VERIFIKASI INFO (DATA YG DIKIRIM BISA BERUPA LINK, OTP, UNIQUE PASSWORD) KE USER, METODE BISA PAKAI EMAIL, SMS, WA, CALL
-    const message = "<h1>Thank You</h1>";
-    await transporter.sendMail({
+    // 4.0. Generate OTP
+    const OTP = otpGenerator.generate(6, {
+      specialChars: false,
+      upperCaseAlphabets: false,
+      lowerCaseAlphabets: true,
+    });
+    console.log(OTP);
+
+    // 4.1 save OTP ke database
+    const SAVE_OTP = `INSERT into otp_history (OTP) VALUES (?)`;
+    const [OTP_INFO] = await database.query(SAVE_OTP, [OTP]);
+
+    // Set expired time of OTP using event scheduler, token_${OTP} NANTI NAMA EVENT NYA AKAN BERBEDA WALAUPUN ADA SEKALIGUS 10 USER YANG BERBARENGAN BIKIN OTP"
+    const SET_SCHEDULE = `CREATE EVENT IF NOT EXISTS token_${OTP}
+    ON SCHEDULE AT CURRENT_TIMESTAMP + INTERVAL 30 SECOND
+    DO DELETE FROM otp_history WHERE id = ? 
+    `;
+    await database.query(SET_SCHEDULE, [OTP_INFO.insertId]);
+
+    // 4.2 KIRIM VERIFIKASI INFO (DATA YG DIKIRIM BISA BERUPA LINK, OTP, UNIQUE PASSWORD) KE USER, METODE BISA PAKAI EMAIL, SMS, WA, CALL
+    const message = `
+    <h1>OTP Verification</h1>
+    <p>Please insert this token</p>
+    <p>token : ${OTP}</p>
+    <p>Available for 30 seconds</p>
+    `;
+    const info = await transporter.sendMail({
       from: `"Admin Warehouse" <jcwdvl02.warehouse@gmail.com>`,
       to: "bagoes.tyo@gmail.com",
       subject: "Email Verification",
@@ -121,4 +148,34 @@ const keeplogin = async (req, res) => {
   }
 };
 
-module.exports = { register, login, keeplogin };
+const verifyOTP = async (req, res) => {
+  const { otp_token } = req.body;
+  try {
+    const CHECK_OTP = `SELECT OTP from otp_history WHERE OTP = ?`;
+    const [OTP] = await database.query(CHECK_OTP, [otp_token]);
+    console.log(OTP);
+
+    if (!OTP.length) throw { message: `OTP token is already expired.` };
+
+    // 1. Remove event scheduler
+    const REMOVE_EVENT = `DROP EVENT IF EXISTS token_${otp_token}`;
+    await database.query(REMOVE_EVENT);
+
+    // 2. set status user
+    const CHANGE_STATUS = `UPDATE user SET verified_status = 1`;
+    const [INFO] = await database.query(CHANGE_STATUS);
+
+    // 3. Remove Token
+    const REMOVE_TOKEN = `DELETE FROM otp_history WHERE OTP = ?`;
+    await database.query(REMOVE_TOKEN, [otp_token]);
+
+    res
+      .status(200)
+      .send(new utils.CreateRespond(200, "OTP Verification Success", INFO));
+  } catch (error) {
+    console.log(error);
+    res.status(500).send({ error });
+  }
+};
+
+module.exports = { register, login, keeplogin, verifyOTP };
