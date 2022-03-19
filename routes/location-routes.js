@@ -33,6 +33,7 @@ function compare (a, b) {
     return 0;
 }
 router.get('/ongkos/:destination', async (req, res) => {
+    console.log(req.query)
     const param = req.params;
     const product_id = JSON.parse(req.query.product_id);
     const quantity_p = JSON.parse(req.query.quantity_p);

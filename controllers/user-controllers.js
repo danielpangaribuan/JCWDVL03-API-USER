@@ -13,10 +13,13 @@ const addAddress = async (req, res) => {
                             '${city_id}', '${postal_code}', '2022-01-22 00:00:00', '2022-01-22 00:00:00');`
         const [ add_address ] = await db.execute(ADD_ADDRESS);
 
+        const GET_ADRRESS_ID = `SELECT MAX(id) AS id FROM user_address WHERE user_id = ${user_id};`;
+        const [ get_address_id ] = await db.execute(GET_ADRRESS_ID);
+
         res.status(200).send(new utils.CreateRespond(
             200,
             "Add User Address Success",
-            add_address
+            get_address_id[0].id
         ))
     } catch (error) {
         console.log(error);

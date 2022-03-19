@@ -26,7 +26,7 @@ const addTransaction = async (req, res) => {
             const [ add_cart_detail ] = await db.execute(ADD_CART_DETAIL);
         }));
 
-        const CHECK_TRANSACTION_DAY = `SELECT COUNT(*) AS cnt FROM transaction WHERE created_at = CURDATE();`
+        const CHECK_TRANSACTION_DAY = `SELECT COUNT(*) AS cnt FROM transaction WHERE DATE(created_at) = CURDATE();`
         const [ check_transaction_day ] = await db.execute(CHECK_TRANSACTION_DAY);
 
         const inv_date = moment().format("YYYYMMDD");
@@ -66,6 +66,94 @@ const addTransaction = async (req, res) => {
     }
 }
 
+const getTransactionStatus = async (req, res) => {
+    const { userID } = req.params;
+    try {
+        console.log(userID)
+        console.log(req.params)
+        const GET_TRANSACTION_STATUS = `SELECT 
+                                            c.user_id,
+                                            t.invoice_number,
+                                            t.total_price,
+                                            t.status_id,
+                                            ts.status
+                                        FROM
+                                            transaction AS t,
+                                            transaction_status AS ts,
+                                            cart AS c
+                                        WHERE
+                                            t.status_id NOT IN (7)
+                                            AND t.status_id = ts.id
+                                            AND c.user_id = ${userID}
+                                            AND t.cart_id = c.id;`;
+        const GET_ITEM = `SELECT 
+                                c.user_id,
+                                t.invoice_number,
+                                cd.quantity,
+                                p.product_name,
+                                p.price,
+                                p.price * cd.quantity AS sub_total
+                            FROM
+                                transaction AS t,
+                                transaction_status AS ts,
+                                cart AS c,
+                                cart_detail AS cd,
+                                product AS p
+                            WHERE
+                                t.status_id NOT IN (8)
+                                AND t.status_id = ts.id
+                                AND c.user_id = ${userID}
+                                AND t.cart_id = c.id
+                                AND t.cart_id = cd.cart_id
+                                AND p.id = cd.product_id;`
+        
+
+        const [ get_transaction_status ] = await db.execute(GET_TRANSACTION_STATUS);
+        const [ get_item ] = await db.execute(GET_ITEM);
+
+        const transaction = []
+        await Promise.all(get_transaction_status.map( async (obj, idx) => {
+            transaction.push({ ...obj, item: [] });
+
+            await Promise.all(get_item.map( (val) => {
+                
+                if (obj.invoice_number == val.invoice_number) {
+                    transaction[idx].item.push(val)
+                    // console.log(idx)
+                }
+
+            }));
+
+        }))
+
+        for ( let i = 0; i < get_transaction_status.length; i++  ) {
+
+            for ( let j = 0; j < get_item; j++) {
+                console.log(get_transaction_status[i].invoice_number, get_item[j].invoice_number)
+                if (get_transaction_status[i].invoice_number == get_item[j].invoice_number) {
+                    console.log(a)
+                    transaction[j].item = [ ...transaction[j].item , get_item[j]]
+
+                }
+
+            }
+
+        }
+        // console.log(get_item)
+        console.log(transaction)
+        
+        const data = transaction;
+        res.status(200).send(new utils.CreateRespond(
+            200,
+            'Success',
+            data
+        ))
+    } catch (error) {
+        console.log(error);
+    }
+}
+
 module.exports = {
-    addTransaction
+    addTransaction,
+    getTransactionStatus
 }
