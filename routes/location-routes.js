@@ -6,7 +6,7 @@ const utils = require('../utils');
 var _ = require('lodash');
 
 axios.defaults.baseURL = 'https://api.rajaongkir.com/starter'
-axios.defaults.headers.common['key'] = '2901eb0c5d2b81c619689726e15d8394'
+axios.defaults.headers.common['key'] = '034ca4aa6fd0a3fdcb1ab0073f54e3fc'
 axios.defaults.headers.post['Content-Type'] = 'application/x-www-form-urlencoded';
 
 router.get('/provinsi', (req, res) => {

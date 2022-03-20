@@ -86,7 +86,8 @@ const getTransactionStatus = async (req, res) => {
                                             t.status_id NOT IN (7)
                                             AND t.status_id = ts.id
                                             AND c.user_id = ${userID}
-                                            AND t.cart_id = c.id;`;
+                                            AND t.cart_id = c.id
+                                        ORDER BY t.created_at DESC;`;
         const GET_ITEM = `SELECT 
                                 c.user_id,
                                 t.invoice_number,
@@ -158,7 +159,29 @@ const getTransactionStatus = async (req, res) => {
     }
 }
 
+const addUploadReceipt = async (req, res) => {
+    const { file, date_transfer } = req.body;
+    const { invoice_number } = req.params;
+    try {
+        const UPLOAD_RECEIPT = `UPDATE transaction
+                                SET receipt_transfer = '${file}', date_transfer = '${date_transfer}', status_id = 2
+                                WHERE (invoice_number = '${invoice_number}');`;
+        
+        const [ upload_receipt ] = await db.execute(UPLOAD_RECEIPT);
+
+        res.status(200).send(new utils.CreateRespond(
+            200, 
+            "Add Receipt Success", 
+            upload_receipt
+        ));
+
+    } catch (error) {
+        console.log(error);
+    }
+}
+
 module.exports = {
     addTransaction,
-    getTransactionStatus
+    getTransactionStatus,
+    addUploadReceipt
 }

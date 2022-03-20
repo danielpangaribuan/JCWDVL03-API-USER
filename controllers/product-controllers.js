@@ -1,9 +1,17 @@
 const utils = require('../utils');
 const db = require('../database').promise();
 
+const getPagination = (page, size) => {
+    const limit = size ? +size : 2;
+    const offset = page ? (page - 1) * limit : 0;
+    return { limit, offset }
+}
+
 const getProducts = async (req, res) => {
     try {
-        const { product_name, category_id, warehouse_id } = req.query;
+        const { product_name, category_id, sort, page, size } = req.query;
+        const { limit, offset } = getPagination(page, size);
+
         const GET_PRODUCTS = `SELECT 
                                 p.id, 
                                 p.product_name AS product_name, 
@@ -21,9 +29,33 @@ const getProducts = async (req, res) => {
                                 AND i.product_id = p.id
                                 AND p.product_name LIKE '%${ product_name ? product_name : '' }%'
                                 AND p.category_id = IFNULL(${ category_id ? category_id : null }, p.category_id)
-                            GROUP BY p.id, pm.image;`
+                            GROUP BY p.id, pm.image
+                            LIMIT ${limit} OFFSET ${offset};`
+
+        const TOTAL_DATA = `SELECT 
+                                p.id, 
+                                p.product_name AS product_name, 
+                                p.price AS price, 
+                                pm.image, 
+                                p.weight, 
+                                SUM(i.quantity) AS quantity
+                            FROM
+                                product p,
+                                product_image AS pm,
+                                inventory AS i
+                            WHERE
+                                p.id = pm.product_id
+                                AND pm.status = 1
+                                AND i.product_id = p.id
+                                AND p.product_name LIKE '%${ product_name ? product_name : '' }%'
+                                AND p.category_id = IFNULL(${ category_id ? category_id : null }, p.category_id)
+                            GROUP BY p.id, pm.image`;
+        
         const [ get_product ] = await db.execute(GET_PRODUCTS);
-        const data = get_product;
+        const [ total_data ] = await db.execute(TOTAL_DATA);
+        const totalItems = total_data.length;
+        // const data = get_product;
+        const data = { 'rows': get_product, 'currentPage': parseInt(page), 'totalPage': Math.ceil(totalItems / limit), 'length' : totalItems,  };
 
         res.status(200).send(new utils.CreateRespond(
             200,
