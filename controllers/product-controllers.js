@@ -11,7 +11,7 @@ const getProducts = async (req, res) => {
     try {
         const { product_name, category_id, sort, page, size } = req.query;
         const { limit, offset } = getPagination(page, size);
-
+        const sorting = sort == 0 ? 'ORDER BY price ASC' : sort == 1 ? 'ORDER BY price DESC' : '';
         const GET_PRODUCTS = `SELECT 
                                 p.id, 
                                 p.product_name AS product_name,
@@ -33,6 +33,7 @@ const getProducts = async (req, res) => {
                                 AND p.product_name LIKE '%${ product_name ? product_name : '' }%'
                                 AND p.category_id = IFNULL(${ category_id ? category_id : null }, p.category_id)
                             GROUP BY p.id, pm.image
+                            ${sorting}
                             LIMIT ${limit} OFFSET ${offset};`
 
         const TOTAL_DATA = `SELECT 
