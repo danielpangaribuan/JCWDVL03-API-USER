@@ -14,7 +14,8 @@ const getProducts = async (req, res) => {
 
         const GET_PRODUCTS = `SELECT 
                                 p.id, 
-                                p.product_name AS product_name, 
+                                p.product_name AS product_name,
+                                c.name AS category,
                                 p.price AS price, 
                                 pm.image, 
                                 p.weight, 
@@ -22,10 +23,12 @@ const getProducts = async (req, res) => {
                             FROM
                                 product p,
                                 product_image AS pm,
-                                inventory AS i
+                                inventory AS i,
+                                category AS c
                             WHERE
                                 p.id = pm.product_id
                                 AND pm.status = 1
+                                AND c.id = p.category_id
                                 AND i.product_id = p.id
                                 AND p.product_name LIKE '%${ product_name ? product_name : '' }%'
                                 AND p.category_id = IFNULL(${ category_id ? category_id : null }, p.category_id)
