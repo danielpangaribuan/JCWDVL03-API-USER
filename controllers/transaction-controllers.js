@@ -1,9 +1,10 @@
 const utils = require('../utils');
 const db = require('../database').promise();
+const { uploader } = require('../helper/uploader');
+const fs = require('fs');
 var _ = require('lodash');
 var moment = require('moment');
-
-let currDateTime = moment().format("YYYY-MM-DD HH:mm:ss");
+var currDateTime = moment().format("YYYY-MM-DD HH:mm:ss");
 
 const addTransaction = async (req, res) => {
     const { total_price, delivery_fee, user_id, checkout_item, user_address_id, bank_id } = req.body;
@@ -69,8 +70,6 @@ const addTransaction = async (req, res) => {
 const getTransactionStatus = async (req, res) => {
     const { userID } = req.params;
     try {
-        console.log(userID)
-        console.log(req.params)
         const GET_TRANSACTION_STATUS = `SELECT 
                                             c.user_id,
                                             t.invoice_number,
@@ -125,7 +124,6 @@ const getTransactionStatus = async (req, res) => {
                 
                 if (obj.invoice_number == val.invoice_number) {
                     transaction[idx].item.push(val)
-                    // console.log(idx)
                 }
 
             }));
@@ -135,9 +133,9 @@ const getTransactionStatus = async (req, res) => {
         for ( let i = 0; i < get_transaction_status.length; i++  ) {
 
             for ( let j = 0; j < get_item; j++) {
-                console.log(get_transaction_status[i].invoice_number, get_item[j].invoice_number)
+                
                 if (get_transaction_status[i].invoice_number == get_item[j].invoice_number) {
-                    console.log(a)
+
                     transaction[j].item = [ ...transaction[j].item , get_item[j]]
 
                 }
@@ -145,8 +143,6 @@ const getTransactionStatus = async (req, res) => {
             }
 
         }
-        // console.log(get_item)
-        console.log(transaction)
         
         const data = transaction;
         res.status(200).send(new utils.CreateRespond(
@@ -159,24 +155,44 @@ const getTransactionStatus = async (req, res) => {
     }
 }
 
-const addUploadReceipt = async (req, res) => {
-    const { file, date_transfer } = req.body;
-    const { invoice_number } = req.params;
+const addUploadReceipt = (req, res) => {
+    // const { file, date_transfer } = req.body;
     try {
-        const UPLOAD_RECEIPT = `UPDATE transaction
-                                SET receipt_transfer = '${file}', date_transfer = '${date_transfer}', status_id = 2
-                                WHERE (invoice_number = '${invoice_number}');`;
-        
-        const [ upload_receipt ] = await db.execute(UPLOAD_RECEIPT);
+        let path = '/images';
+        const upload = uploader(path, 'IMG').fields([{ name: 'file' }])
 
-        res.status(200).send(new utils.CreateRespond(
-            200, 
-            "Add Receipt Success", 
-            upload_receipt
-        ));
+        upload(req, res, (error) => {
+            if (error) {
+                console.log(error);
+                res.status(500).send(error);
+            }
+            
+            const { invoice_number } = req.params;
+            const { file } = req.files;
+            const filepath = file ? path+'/' + file[0].filename : null;
 
+            let data = JSON.parse(req.body.data);
+
+            const UPLOAD_RECEIPT = `UPDATE transaction
+                                    SET receipt_transfer = '${filepath}', date_transfer = ${db.escape(data.date_transfer)}, status_id = 2
+                                    WHERE (invoice_number = '${invoice_number}');`;
+            
+            db.query(UPLOAD_RECEIPT, data, (err, results) => {
+                if (err) {
+                    console.log(err);
+                    fs.unlinkSync('./public' + filepath);
+                    res.status(500).send(err);
+                }
+
+                res.status(200).send(new utils.CreateRespond(
+                    200, 
+                    "Upload Receipt Success",
+                ));
+            })
+        })
     } catch (error) {
         console.log(error);
+        res.status(500).send(error)
     }
 }
 

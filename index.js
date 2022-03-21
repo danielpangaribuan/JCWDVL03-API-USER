@@ -2,8 +2,10 @@
 const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
+const bearerToken = require('express-bearer-token');
 dotenv.config();
 const database = require("./database");
+var path = require('path');
 
 const { UrlLogger } = require("./utils");
 const req = require("express/lib/request");
@@ -15,6 +17,7 @@ const app = express();
 app.use(cors({ exposedHeaders: "Authorization" })); // Allow CORS: Access-Control-Allow-Origin. Exposed Headers berfungsi agar header kita yang di kasus ini berisi token dapat terlihat di frontend
 app.use(express.json()); // body-parser
 app.use(UrlLogger);
+app.use(bearerToken());
 
 // test database connection
 database.connect((error) => {
@@ -32,6 +35,8 @@ app.use(routes.locationRoutes);
 app.use(routes.comboRoutes);
 app.use(routes.transactionRoutes);
 app.use(routes.userRoutes);
+app.use(express.static(path.resolve('./public')));
+
 
 // running server
 const PORT = process.env.PORT || 2000;
