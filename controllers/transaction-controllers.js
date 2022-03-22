@@ -1,9 +1,10 @@
 const utils = require('../utils');
 const db = require('../database').promise();
+const { uploader } = require('../helper/uploader');
+const fs = require('fs');
 var _ = require('lodash');
 var moment = require('moment');
-
-let currDateTime = moment().format("YYYY-MM-DD HH:mm:ss");
+var currDateTime = moment().format("YYYY-MM-DD HH:mm:ss");
 
 const addTransaction = async (req, res) => {
     const { total_price, delivery_fee, user_id, checkout_item, user_address_id, bank_id } = req.body;
@@ -69,14 +70,13 @@ const addTransaction = async (req, res) => {
 const getTransactionStatus = async (req, res) => {
     const { userID } = req.params;
     try {
-        console.log(userID)
-        console.log(req.params)
         const GET_TRANSACTION_STATUS = `SELECT 
                                             c.user_id,
                                             t.invoice_number,
                                             t.total_price,
                                             t.status_id,
-                                            ts.status
+                                            ts.status,
+                                            t.created_at
                                         FROM
                                             transaction AS t,
                                             transaction_status AS ts,
@@ -85,26 +85,31 @@ const getTransactionStatus = async (req, res) => {
                                             t.status_id NOT IN (7)
                                             AND t.status_id = ts.id
                                             AND c.user_id = ${userID}
-                                            AND t.cart_id = c.id;`;
+                                            AND t.cart_id = c.id
+                                        ORDER BY t.created_at DESC;`;
         const GET_ITEM = `SELECT 
                                 c.user_id,
                                 t.invoice_number,
                                 cd.quantity,
                                 p.product_name,
                                 p.price,
-                                p.price * cd.quantity AS sub_total
+                                p.price * cd.quantity AS sub_total,
+                                pm.image
                             FROM
                                 transaction AS t,
                                 transaction_status AS ts,
                                 cart AS c,
                                 cart_detail AS cd,
-                                product AS p
+                                product AS p,
+                                product_image AS pm
                             WHERE
                                 t.status_id NOT IN (8)
                                 AND t.status_id = ts.id
                                 AND c.user_id = ${userID}
                                 AND t.cart_id = c.id
                                 AND t.cart_id = cd.cart_id
+                                AND pm.product_id = p.id
+                                AND pm.status = 1
                                 AND p.id = cd.product_id;`
         
 
@@ -119,7 +124,6 @@ const getTransactionStatus = async (req, res) => {
                 
                 if (obj.invoice_number == val.invoice_number) {
                     transaction[idx].item.push(val)
-                    // console.log(idx)
                 }
 
             }));
@@ -129,9 +133,9 @@ const getTransactionStatus = async (req, res) => {
         for ( let i = 0; i < get_transaction_status.length; i++  ) {
 
             for ( let j = 0; j < get_item; j++) {
-                console.log(get_transaction_status[i].invoice_number, get_item[j].invoice_number)
+                
                 if (get_transaction_status[i].invoice_number == get_item[j].invoice_number) {
-                    console.log(a)
+
                     transaction[j].item = [ ...transaction[j].item , get_item[j]]
 
                 }
@@ -139,8 +143,6 @@ const getTransactionStatus = async (req, res) => {
             }
 
         }
-        // console.log(get_item)
-        console.log(transaction)
         
         const data = transaction;
         res.status(200).send(new utils.CreateRespond(
@@ -153,7 +155,49 @@ const getTransactionStatus = async (req, res) => {
     }
 }
 
+const addUploadReceipt = (req, res) => {
+    // const { file, date_transfer } = req.body;
+    try {
+        let path = '/images';
+        const upload = uploader(path, 'IMG').fields([{ name: 'file' }])
+
+        upload(req, res, (error) => {
+            if (error) {
+                console.log(error);
+                res.status(500).send(error);
+            }
+            
+            const { invoice_number } = req.params;
+            const { file } = req.files;
+            const filepath = file ? path+'/' + file[0].filename : null;
+
+            let data = JSON.parse(req.body.data);
+
+            const UPLOAD_RECEIPT = `UPDATE transaction
+                                    SET receipt_transfer = '${filepath}', date_transfer = ${db.escape(data.date_transfer)}, status_id = 2
+                                    WHERE (invoice_number = '${invoice_number}');`;
+            
+            db.query(UPLOAD_RECEIPT, data, (err, results) => {
+                if (err) {
+                    console.log(err);
+                    fs.unlinkSync('./public' + filepath);
+                    res.status(500).send(err);
+                }
+
+                res.status(200).send(new utils.CreateRespond(
+                    200, 
+                    "Upload Receipt Success",
+                ));
+            })
+        })
+    } catch (error) {
+        console.log(error);
+        res.status(500).send(error)
+    }
+}
+
 module.exports = {
     addTransaction,
-    getTransactionStatus
+    getTransactionStatus,
+    addUploadReceipt
 }
