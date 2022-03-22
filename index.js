@@ -34,5 +34,5 @@ app.use(routes.transactionRoutes);
 app.use(routes.userRoutes);
 
 // running server
-const PORT = process.env.PORT || 2000;
+const PORT = 2000;
 app.listen(PORT, () => console.log(`server is running at port : ${PORT}`));

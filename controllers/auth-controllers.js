@@ -2,12 +2,12 @@ const bcrypt = require("bcrypt");
 const JWT = require("jsonwebtoken");
 const otpGenerator = require("otp-generator");
 const uid = require("uid").uid;
-const OTP = require("otp-generator");
 const database = require("../database").promise(); // Kenapa di .promise()
 const utils = require("../utils");
 const schema = require("../utils/schema");
-// const otp_generator =
 const transporter = require("../utils/transporter");
+
+const OTP_TOKEN = [];
 
 const register = async (req, res) => {
   const { username, email, password, fullname, date_of_birth, gender } =
@@ -54,6 +54,7 @@ const register = async (req, res) => {
     });
     console.log(OTP);
 
+    // Opsi pertama bikin otp token
     // 4.1 save OTP ke database
     const SAVE_OTP = `INSERT into otp_history (OTP) VALUES (?)`;
     const [OTP_INFO] = await database.query(SAVE_OTP, [OTP]);
@@ -61,9 +62,17 @@ const register = async (req, res) => {
     // Set expired time of OTP using event scheduler, token_${OTP} NANTI NAMA EVENT NYA AKAN BERBEDA WALAUPUN ADA SEKALIGUS 10 USER YANG BERBARENGAN BIKIN OTP"
     const SET_SCHEDULE = `CREATE EVENT IF NOT EXISTS token_${OTP}
     ON SCHEDULE AT CURRENT_TIMESTAMP + INTERVAL 30 SECOND
-    DO DELETE FROM otp_history WHERE id = ? 
+    DO DELETE FROM otp_history WHERE id = ?
     `;
     await database.query(SET_SCHEDULE, [OTP_INFO.insertId]);
+
+    // // Opsi Kedua bikin otp token
+    // let verified = false;
+    // OTP_TOKEN.push({
+    //   token: OTP,
+    //   createAt: Date.now(),
+    //   expired: 30000, // milisecond, artinya berarti ini 30 detik
+    // });
 
     // 4.2 KIRIM VERIFIKASI INFO (DATA YG DIKIRIM BISA BERUPA LINK, OTP, UNIQUE PASSWORD) KE USER, METODE BISA PAKAI EMAIL, SMS, WA, CALL
     const message = `
@@ -151,6 +160,7 @@ const keeplogin = async (req, res) => {
 const verifyOTP = async (req, res) => {
   const { otp_token } = req.body;
   try {
+    // Opsi pertama check otp
     const CHECK_OTP = `SELECT OTP from otp_history WHERE OTP = ?`;
     const [OTP] = await database.query(CHECK_OTP, [otp_token]);
     console.log(OTP);
@@ -161,8 +171,21 @@ const verifyOTP = async (req, res) => {
     const REMOVE_EVENT = `DROP EVENT IF EXISTS token_${otp_token}`;
     await database.query(REMOVE_EVENT);
 
+    // // Opsi kedua - check otp
+    // let verified = false;
+    // let otp_index = null;
+    // OTP_TOKEN.forEach((otp, index) => {
+    //   if (otp_token === otp.token) {
+    //     verified = Date.now() <= otp.createAt + otp.expired;
+    //     otp_index = index;
+    //   }
+    // });
+    // if (otp_index !== null) OTP_TOKEN.splice(otp_index, 1);
+    // if (!verified) throw { message: `OTP token is already expired.` };
+    // console.log(`OTP`, OTP_TOKEN);
+
     // 2. set status user
-    const CHANGE_STATUS = `UPDATE user SET verified_status = 1`;
+    const CHANGE_STATUS = `UPDATE user SET verified_status = 2`;
     const [INFO] = await database.query(CHANGE_STATUS);
 
     // 3. Remove Token
